@@ -89,7 +89,6 @@ ${message}
     });
 
   } catch (error) {
-
     return Response.json(
       {
         error: "Chat service error: " + error.message
