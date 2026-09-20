@@ -4,7 +4,8 @@ const bots=[
 ["Money Desk","Money","$12/mo"],["School Mate","School","$0/day"],
 ["File Clerk","Operations","$0/day"],["Appointment","Life","$2/day"],
 ["Launch Pad","Operations","$49 buy"],["Moderator","Operations","$7/mo"],
-["Portfolio","Creative","$0/day"],["Screen Pet","Creative","$5/day"]
+["Portfolio","Creative","$0/day"],["Screen Pet","Creative","$5/day"],
+["Handy-Candy","Operations","$0/day"]
 ];
 const colors=["#c8d0d3","#e6d8b9","#b8c6ba","#d5b8ca","#c3b8d7","#d1c7b5","#afc1c9","#dcc1a8"];
 
@@ -24,12 +25,15 @@ function render(){
 function deployBot(name){
  const bot=bots.find(b=>b[0]===name); if(!bot)return;
  document.getElementById("bot-workspace")?.remove();
+ const handy=name==="Handy-Candy";
+ const description=handy?"EMAIL → draft → review → negotiate → schedule → follow up → thank → close. Approval required before consequential external actions.":`${bot[0]} is ready for deployment.`;
+ const greeting=handy?"Hi! I’m Handy-Candy 🍬🤖. I can draft, review, negotiate, plan scheduling, follow up, thank, and close. I’ll pause for your approval before anything consequential is sent or committed.":"Hello. I'm ready. What can I help you with today?";
  const w=document.createElement("div"); w.id="bot-workspace";
  w.innerHTML=`<div class="bot-window">
  <div class="bot-header"><div><h2>${esc(bot[0])}</h2><small>${esc(bot[1])} • ${esc(bot[2])}</small></div>
  <button type="button" onclick="closeBotWorkspace()">×</button></div>
- <div class="bot-description">${esc(bot[0])} is ready for deployment.</div>
- <div id="bot-messages" class="bot-messages"><div class="bot-message"><strong>${esc(bot[0])}:</strong> Hello. I'm ready. What can I help you with today?</div></div>
+ <div class="bot-description">${esc(description)}</div>
+ <div id="bot-messages" class="bot-messages"><div class="bot-message"><strong>${esc(bot[0])}:</strong> ${esc(greeting)}</div></div>
  <form id="bot-chat-form"><input id="bot-input" type="text" autocomplete="off" placeholder="What can I help with today?"><button type="submit">SEND</button></form>
  </div>`;
  document.body.appendChild(w);
