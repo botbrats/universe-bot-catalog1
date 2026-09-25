@@ -10,6 +10,15 @@ cached. Browser data can be cleared,
 so bookmarks are not a substitute for the future private database or backup.
 Documents & signing appears first as a locked tile. The document desk farther down
 the public page contains only placeholders. No documents or signatures are sent to DocuSign.
+The top alert strip shows fictional examples only. Real notifications must be fetched
+after sign-in and scoped to the authenticated account; never put private counts,
+recipients, properties, or incident details in the public HTML. For each approval request,
+store its project, originating agent or employee, exact action and content hash, ordered
+approval stages, approver identity, timestamps, and final delivery result. A change to
+the recipient, property, content, or action resets approval. Show "Step N of M" for the
+pending stage and notify the next approver; do not mark a task complete until the
+external action succeeds and its result is recorded. Urgent issues and approvals belong
+in separate queues with a combined top badge for signed-in users.
 
 For a future blank product, ship a clean starter with sample data and optional connectors.
 Do not ship customer projects, tokens, credentials, or the owner's personal bookmarks.
