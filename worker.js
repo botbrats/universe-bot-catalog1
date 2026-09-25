@@ -1,4 +1,35 @@
 const ZOHO_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/zoho/callback";
+const CHAT_MODELS = ["gemini-3.6-flash", "gemini-2.5-flash"];
+
+async function generateChat(prompt, apiKey) {
+  let lastError = "The chat service is temporarily busy.";
+  let lastStatus = 503;
+  for (const model of CHAT_MODELS) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        const reply = data?.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("");
+        if (reply) return { reply, model };
+        lastError = "The model returned no text response.";
+        lastStatus = 502;
+      } else {
+        lastError = data?.error?.message || "The model returned an error.";
+        lastStatus = response.status;
+      }
+      // Retry only temporary model failures; invalid keys and malformed requests need a fix.
+      if (![429, 500, 502, 503, 504].includes(lastStatus)) break;
+    } catch (_) {
+      lastError = "The chat service could not reach the model.";
+      lastStatus = 503;
+    }
+  }
+  throw Object.assign(new Error(lastError), { status: lastStatus });
+}
 
 function html(message, status = 200) {
   return new Response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Handy-Candy Zoho</title><body style="font-family:system-ui;padding:2rem"><h2>Handy-Candy + Zoho</h2><p>${message}</p></body>`, {
@@ -132,37 +163,12 @@ User request:
 ${message}
 `;
 
-        const response = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" +
-            encodeURIComponent(apiKey),
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: systemPrompt }] }]
-            })
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          return Response.json(
-            { error: data?.error?.message || "Gemini returned an error." },
-            { status: response.status }
-          );
-        }
-
-        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!reply) {
-          return Response.json({ error: "Gemini returned no text response." }, { status: 502 });
-        }
-
-        return Response.json({ bot, reply });
+        const { reply, model } = await generateChat(systemPrompt, apiKey);
+        return Response.json({ bot, reply, model });
       } catch (error) {
         return Response.json(
-          { error: "Chat service error: " + error.message },
-          { status: 500 }
+          { error: error.status === 503 ? "Both chat models are temporarily unavailable. Please retry shortly." : error.message },
+          { status: error.status || 500 }
         );
       }
     }

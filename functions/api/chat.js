@@ -38,55 +38,32 @@ User request:
 ${message}
 `;
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-        encodeURIComponent(apiKey),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: systemPrompt
-                }
-              ]
-            }
-          ]
-        })
+    let lastError = "Both chat models are temporarily unavailable.";
+    let lastStatus = 503;
+    for (const model of ["gemini-3.6-flash", "gemini-2.5-flash"]) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] }) }
+        );
+        const data = await response.json();
+        if (response.ok) {
+          const reply = data?.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("");
+          if (reply) return Response.json({ bot, reply, model });
+          lastError = "The model returned no text response.";
+          lastStatus = 502;
+        } else {
+          lastError = data?.error?.message || "The model returned an error.";
+          lastStatus = response.status;
+        }
+        if (![429, 500, 502, 503, 504].includes(lastStatus)) break;
+      } catch (_) {
+        lastError = "The chat service could not reach the model.";
+        lastStatus = 503;
       }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return Response.json(
-        {
-          error:
-            data?.error?.message ||
-            "Gemini returned an error."
-        },
-        { status: response.status }
-      );
     }
-
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!reply) {
-      return Response.json(
-        { error: "Gemini returned no text response." },
-        { status: 502 }
-      );
-    }
-
-    return Response.json({
-      bot,
-      reply
-    });
+    return Response.json({ error: lastError }, { status: lastStatus });
 
   } catch (error) {
     return Response.json(
