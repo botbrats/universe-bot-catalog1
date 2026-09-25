@@ -16,7 +16,8 @@ export default {
       return Response.json({
         ZOHO_CLIENT_ID: Boolean(env.ZOHO_CLIENT_ID),
         ZOHO_CLIENT_SECRET: Boolean(env.ZOHO_CLIENT_SECRET),
-        GEMINI_API_KEY: Boolean(env.GEMINI_API_KEY)
+        GEMINI_API_KEY: Boolean(env.GEMINI_API_KEY),
+        OAUTH_TOKENS: Boolean(env.OAUTH_TOKENS)
       });
     }
 
@@ -65,11 +66,17 @@ export default {
         return html("Zoho token exchange failed. Return to ChatGPT with the error name only (do not share tokens).", 502);
       }
 
-      // Cloudflare Worker secrets cannot be created/changed from this Worker.
-      // For safety, do not display access_token or refresh_token in the browser.
-      // We only confirm whether Zoho issued the offline refresh token needed for long-lived access.
+      // Store the long-lived credential server-side only. Never display or log it.
       if (tokenData.refresh_token) {
-        return html("SUCCESS: Zoho authorized Handy-Candy and issued offline access. Do not repeat authorization yet. Return to ChatGPT and say: ZOHO AUTH SUCCESS.");
+        if (!env.OAUTH_TOKENS) {
+          return html("Offline access was issued, but secure storage is not connected. Return to ChatGPT and say: KV NOT CONNECTED.", 503);
+        }
+        await env.OAUTH_TOKENS.put("zoho_refresh_token", tokenData.refresh_token);
+        await env.OAUTH_TOKENS.put("zoho_accounts_domain", "https://accounts.zoho.com");
+        if (tokenData.api_domain) {
+          await env.OAUTH_TOKENS.put("zoho_api_domain", tokenData.api_domain);
+        }
+        return html("SUCCESS: Zoho authorized Handy-Candy and the refresh token was stored securely. Return to ChatGPT and say: ZOHO TOKEN STORED.");
       }
 
       return html("Zoho authorized the app, but no refresh token was returned. Return to ChatGPT and say: NO REFRESH TOKEN.");
