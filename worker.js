@@ -42,6 +42,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Until administrator authentication exists, the Zoho setup routes must
+    // not be reachable from the public catalog (including token diagnostics).
+    if (url.pathname.startsWith("/api/zoho/")) {
+      return Response.json({ error: "Administrator sign-in required. Zoho setup is locked on the public prototype." }, { status: 403 });
+    }
+
     // Safe diagnostics: reports presence only, never secret values.
     if (url.pathname === "/api/zoho/diagnostics" && request.method === "GET") {
       return Response.json({

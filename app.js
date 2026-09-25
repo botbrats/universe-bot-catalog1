@@ -92,7 +92,7 @@ const homeDrawers=[
  ["📄","Documents & signing",[{label:"DocuSign",url:"https://account.docusign.com/"},{label:"My templates",target:"documents"},{label:"My forms",target:"documents"}]],
  ["🧾","Accounting",[{label:"Accounting workspace",target:"portal"}]],
  ["👥","Employees",[{label:"Employee portal",target:"portal"}]],
- ["🤖","Agents & tools",[{label:"Bot catalog",target:"catalog"},{label:"Deploy agents",target:"deploy"}]],
+ ["🤖","Agents & tools",[{label:"Bot catalog",target:"catalog"},{label:"Deploy agents",target:"deploy"}],true],
  ["✨","Personal assistant",[{label:"Personal workspace",target:"portal"}]],
  ["💬","ChatGPT assistant",[{label:"Open ChatGPT",url:"https://chatgpt.com/"},{label:"Handy-Candy",bot:"Handy-Candy"}]],
  ["🛍️","Stores",[{label:"Store workspace",target:"portal"}]],
@@ -102,13 +102,18 @@ const homeDrawers=[
 function setupHome(){
  const host=document.getElementById("home-drawers");
  const dialog=document.getElementById("drawer-dialog");
- for(const [icon,name,entries] of homeDrawers){
+ for(const [icon,name,entries,isPublic] of homeDrawers){
   const tile=document.createElement("button");tile.type="button";tile.className="home-tile";
   const symbol=document.createElement("span");symbol.className="home-icon";symbol.textContent=icon;
   const title=document.createElement("span");title.textContent=name;tile.append(symbol,title);
+  if(!isPublic){const badge=document.createElement("small");badge.textContent="🔒 Administrator only";tile.appendChild(badge)}
   tile.onclick=()=>{
    const heading=document.getElementById("drawer-title");if(heading)heading.textContent=`${icon} ${name}`;
    const links=document.getElementById("drawer-links");links?.replaceChildren();
+   if(!isPublic){
+    const notice=document.createElement("p");notice.textContent="Locked. Administrator sign-in is required. This private workspace is not available on the public prototype.";
+    links?.appendChild(notice);dialog?.showModal();return;
+   }
   for(const entry of entries){
    const button=document.createElement("button");button.type="button";button.textContent=entry.label;
    button.onclick=()=>{
@@ -162,8 +167,6 @@ function setup(){
   });
   drawers.querySelectorAll(".drawer button").forEach(b=>b.onclick=()=>b.parentElement.classList.toggle("open"));
  }
- const unlock=document.getElementById("unlock"),key=document.getElementById("key"),msg=document.getElementById("msg");
- if(unlock)unlock.onclick=()=>{if(msg)msg.textContent=key?.value==="LEVEL1-LEVEL2"?"Demo unlocked — real authentication not configured.":"Locked — use demo key LEVEL1-LEVEL2"};
  const listings=document.getElementById("listings");
  if(listings)for(let i=1;i<=120;i++){const b=bots[(i-1)%bots.length],bg=colors[(i*7)%colors.length];listings.insertAdjacentHTML("beforeend",`<div class="listing" style="background:linear-gradient(110deg,${bg},#fff9)"><b>${String(i).padStart(3,"0")}</b><span><strong>${esc(b[0])}</strong><br><small>${esc(b[1])} • ${esc(b[2])}</small></span><span class="price">${esc(b[2])}</span></div>`)}
  render();

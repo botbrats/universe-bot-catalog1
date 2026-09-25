@@ -1,22 +1,25 @@
 # Universe Bot Catalog — prototype
-Static catalog prototype: showroom theme, cylinder/mirror, bot cards, deployment modes, renter/customer/employee/manager portals, clearance cabinet demo, and 120 editable-style listing rows.
+Static catalog prototype: showroom theme, cylinder/mirror, bot cards, deployment modes, renter/customer/employee/manager portal previews, and 120 listing rows.
 
-The startup page now opens to a grid of square icon buttons; each opens a cabinet drawer
-with shortcuts for accounting, employees,
-agents, personal assistance, ChatGPT, stores, and project files. Bookmarks save in the
+The startup page now opens to a grid of square icon buttons. Private tiles display
+"Administrator only" and open a locked notice; Agents & tools remains a public demo.
+Bookmarks save in the
 current browser only. A service worker caches the public page, CSS, and JavaScript for
 offline opening after the first successful load; API requests and customer files are not
-cached. The cabinet shortcuts to accounting, employees, stores, and projects lead to
-prototype sections until authenticated workspaces are built. Browser data can be cleared,
+cached. Browser data can be cleared,
 so bookmarks are not a substitute for the future private database or backup.
-Documents & signing appears first, with a DocuSign sign-in shortcut and separate
-template and form placeholders. No documents or signatures are sent to DocuSign yet.
+Documents & signing appears first as a locked tile. The document desk farther down
+the public page contains only placeholders. No documents or signatures are sent to DocuSign.
 
 For a future blank product, ship a clean starter with sample data and optional connectors.
 Do not ship customer projects, tokens, credentials, or the owner's personal bookmarks.
 Add product terms and review licenses and trademarks before selling or distributing it.
 
-IMPORTANT: the clearance gate is only a visual demo. Do not put passwords, API keys, financial credentials, or IDs in front-end code. Production needs real authentication, authorization, server-side secrets, audit logs, and human approval gates.
+IMPORTANT: the locked tile is a public notice, not an administrator login. No private
+customer data is stored or exposed in these drawers. The former demo unlock code has
+been removed. Zoho setup endpoints return 403 until verified administrator authentication
+is installed. Production needs real authentication, authorization, server-side secrets,
+audit logs, and human approval gates.
 
 Suggested free-first architecture:
 - Cloudflare Pages for the public catalog
