@@ -11,6 +11,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Safe diagnostics: reports presence only, never secret values.
+    if (url.pathname === "/api/zoho/diagnostics" && request.method === "GET") {
+      return Response.json({
+        ZOHO_CLIENT_ID: Boolean(env.ZOHO_CLIENT_ID),
+        ZOHO_CLIENT_SECRET: Boolean(env.ZOHO_CLIENT_SECRET),
+        GEMINI_API_KEY: Boolean(env.GEMINI_API_KEY)
+      });
+    }
+
     // Start Zoho OAuth. This route redirects the account owner to Zoho.
     if (url.pathname === "/api/zoho/connect" && request.method === "GET") {
       if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) {
