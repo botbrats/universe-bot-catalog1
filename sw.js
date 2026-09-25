@@ -1,5 +1,5 @@
-const CACHE = "universe-cabinet-shell-v2";
-const SHELL = ["/", "/index.html", "/style.css", "/app.js"];
+const CACHE = "universe-cabinet-shell-v3";
+const SHELL = ["/", "/index.html", "/style.css", "/app.js?v=admin-lock-1"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
   self.skipWaiting();
@@ -17,7 +17,7 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(event.request).catch(() => caches.match("/index.html")));
     return;
   }
-  if (SHELL.includes(url.pathname)) {
+  if (SHELL.some(item => new URL(item, self.location.origin).pathname === url.pathname)) {
     event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
   }
 });
