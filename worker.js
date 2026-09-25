@@ -1,6 +1,70 @@
+const ZOHO_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/zoho/callback";
+
+function html(message, status = 200) {
+  return new Response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Handy-Candy Zoho</title><body style="font-family:system-ui;padding:2rem"><h2>Handy-Candy + Zoho</h2><p>${message}</p></body>`, {
+    status,
+    headers: { "Content-Type": "text/html; charset=UTF-8" }
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Start Zoho OAuth. This route redirects the account owner to Zoho.
+    if (url.pathname === "/api/zoho/connect" && request.method === "GET") {
+      if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) {
+        return html("Zoho OAuth secrets are not configured.", 500);
+      }
+
+      const auth = new URL("https://accounts.zoho.com/oauth/v2/auth");
+      auth.searchParams.set("scope", "ZohoMail.messages.ALL");
+      auth.searchParams.set("client_id", env.ZOHO_CLIENT_ID);
+      auth.searchParams.set("response_type", "code");
+      auth.searchParams.set("access_type", "offline");
+      auth.searchParams.set("prompt", "consent");
+      auth.searchParams.set("redirect_uri", ZOHO_REDIRECT_URI);
+
+      return Response.redirect(auth.toString(), 302);
+    }
+
+    // Zoho redirects here after the account owner approves access.
+    // Exchange the one-time code server-side; never expose client secrets to the browser.
+    if (url.pathname === "/api/zoho/callback" && request.method === "GET") {
+      const error = url.searchParams.get("error");
+      if (error) return html("Zoho authorization was not completed: " + error, 400);
+
+      const code = url.searchParams.get("code");
+      if (!code) return html("Missing Zoho authorization code.", 400);
+
+      const tokenBody = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: env.ZOHO_CLIENT_ID,
+        client_secret: env.ZOHO_CLIENT_SECRET,
+        redirect_uri: ZOHO_REDIRECT_URI,
+        code
+      });
+
+      const tokenResponse = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenBody
+      });
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok || tokenData.error) {
+        return html("Zoho token exchange failed. Return to ChatGPT with the error name only (do not share tokens).", 502);
+      }
+
+      // Cloudflare Worker secrets cannot be created/changed from this Worker.
+      // For safety, do not display access_token or refresh_token in the browser.
+      // We only confirm whether Zoho issued the offline refresh token needed for long-lived access.
+      if (tokenData.refresh_token) {
+        return html("SUCCESS: Zoho authorized Handy-Candy and issued offline access. Do not repeat authorization yet. Return to ChatGPT and say: ZOHO AUTH SUCCESS.");
+      }
+
+      return html("Zoho authorized the app, but no refresh token was returned. Return to ChatGPT and say: NO REFRESH TOKEN.");
+    }
 
     if (url.pathname === "/api/chat" && request.method === "POST") {
       try {
