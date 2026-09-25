@@ -1,5 +1,5 @@
 const ZOHO_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/zoho/callback";
-const CHAT_MODELS = ["gemini-3.6-flash", "gemini-2.5-flash"];
+const CHAT_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
 
 async function generateChat(prompt, apiKey) {
   let lastError = "The chat service is temporarily busy.";
