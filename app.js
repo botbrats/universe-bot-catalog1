@@ -95,7 +95,7 @@ const homeDrawers=[
  ["🤖","Agents & tools",[{label:"Bot catalog",target:"catalog"},{label:"Deploy agents",target:"deploy"}],true],
  ["✨","Personal assistant",[{label:"Personal workspace",target:"portal"}]],
  ["💬","ChatGPT assistant",[{label:"Open ChatGPT",url:"https://chatgpt.com/"},{label:"Handy-Candy",bot:"Handy-Candy"}]],
- ["🛍️","Stores",[{label:"Store workspace",target:"portal"}]],
+ ["🛍️","Consignment stores",[{label:"Consignment workspace",target:"portal"}]],
  ["🗂️","Project files",[{label:"Private file room demo",target:"drawers"}]]
 ];
 

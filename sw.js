@@ -1,5 +1,5 @@
-const CACHE = "universe-cabinet-shell-v4";
-const SHELL = ["/", "/index.html", "/style.css?v=alerts-1", "/app.js?v=admin-lock-1"];
+const CACHE = "universe-cabinet-shell-v5";
+const SHELL = ["/", "/index.html", "/style.css?v=alerts-1", "/app.js?v=consignment-1"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
   self.skipWaiting();
