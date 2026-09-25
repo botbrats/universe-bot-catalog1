@@ -32,7 +32,8 @@ async function generateChat(prompt, apiKey) {
 }
 
 function html(message, status = 200) {
-  return new Response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Handy-Candy Zoho</title><body style="font-family:system-ui;padding:2rem"><h2>Handy-Candy + Zoho</h2><p>${message}</p></body>`, {
+  const safe = String(message).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return new Response(`<!doctype html><meta name="viewport" content="width=device-width"><title>Handy-Candy Zoho</title><body style="font-family:system-ui;padding:2rem"><h2>Handy-Candy + Zoho</h2><p>${safe}</p></body>`, {
     status,
     headers: { "Content-Type": "text/html; charset=UTF-8" }
   });
@@ -42,35 +43,28 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Until administrator authentication exists, the Zoho setup routes must
-    // not be reachable from the public catalog (including token diagnostics).
-    if (url.pathname.startsWith("/api/zoho/")) {
-      return Response.json({ error: "Administrator sign-in required. Zoho setup is locked on the public prototype." }, { status: 403 });
-    }
-
-    // Safe diagnostics: reports presence only, never secret values.
+    // Do not expose account state or connected mailbox addresses on the public site.
     if (url.pathname === "/api/zoho/diagnostics" && request.method === "GET") {
-      return Response.json({
-        ZOHO_CLIENT_ID: Boolean(env.ZOHO_CLIENT_ID),
-        ZOHO_CLIENT_SECRET: Boolean(env.ZOHO_CLIENT_SECRET),
-        GEMINI_API_KEY: Boolean(env.GEMINI_API_KEY),
-        OAUTH_TOKENS: Boolean(env.OAUTH_TOKENS)
-      });
+      return Response.json({ error: "Administrator sign-in required." }, { status: 403 });
     }
 
     // Start Zoho OAuth. This route redirects the account owner to Zoho.
     if (url.pathname === "/api/zoho/connect" && request.method === "GET") {
-      if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) {
-        return html("Zoho OAuth secrets are not configured.", 500);
+      if (!env.ZOHO_ALLOWED_ADDRESS || !env.ZOHO_CLIENT_ID ||
+          !env.ZOHO_CLIENT_SECRET || !env.OAUTH_TOKENS) {
+        return html("Zoho connection is not configured.", 503);
       }
 
       const auth = new URL("https://accounts.zoho.com/oauth/v2/auth");
-      auth.searchParams.set("scope", "ZohoMail.messages.ALL");
+      auth.searchParams.set("scope", "ZohoMail.messages.CREATE,ZohoMail.accounts.READ");
       auth.searchParams.set("client_id", env.ZOHO_CLIENT_ID);
       auth.searchParams.set("response_type", "code");
       auth.searchParams.set("access_type", "offline");
       auth.searchParams.set("prompt", "consent");
       auth.searchParams.set("redirect_uri", ZOHO_REDIRECT_URI);
+      const state = crypto.randomUUID();
+      await env.OAUTH_TOKENS.put("zoho_oauth_state:" + state, "pending", { expirationTtl: 600 });
+      auth.searchParams.set("state", state);
 
       return Response.redirect(auth.toString(), 302);
     }
@@ -78,11 +72,21 @@ export default {
     // Zoho redirects here after the account owner approves access.
     // Exchange the one-time code server-side; never expose client secrets to the browser.
     if (url.pathname === "/api/zoho/callback" && request.method === "GET") {
+      if (!env.ZOHO_ALLOWED_ADDRESS || !env.ZOHO_CLIENT_ID ||
+          !env.ZOHO_CLIENT_SECRET || !env.OAUTH_TOKENS) {
+        return html("Zoho connection is not configured.", 503);
+      }
       const error = url.searchParams.get("error");
       if (error) return html("Zoho authorization was not completed: " + error, 400);
 
       const code = url.searchParams.get("code");
       if (!code) return html("Missing Zoho authorization code.", 400);
+      const state = url.searchParams.get("state");
+      if (!state || !/^[0-9a-f-]{36}$/.test(state) ||
+          await env.OAUTH_TOKENS.get("zoho_oauth_state:" + state) !== "pending") {
+        return html("Zoho connection expired. Start again.", 400);
+      }
+      await env.OAUTH_TOKENS.delete("zoho_oauth_state:" + state);
 
       const tokenBody = new URLSearchParams({
         grant_type: "authorization_code",
@@ -105,15 +109,26 @@ export default {
 
       // Store the long-lived credential server-side only. Never display or log it.
       if (tokenData.refresh_token) {
-        if (!env.OAUTH_TOKENS) {
-          return html("Offline access was issued, but secure storage is not connected. Return to ChatGPT and say: KV NOT CONNECTED.", 503);
+        const accountsResponse = await fetch("https://mail.zoho.com/api/accounts", {
+          headers: { Authorization: "Zoho-oauthtoken " + tokenData.access_token }
+        });
+        const accounts = await accountsResponse.json();
+        const approved = accountsResponse.ok && Array.isArray(accounts.data) &&
+          accounts.data.find(account => account.enabled &&
+            account.primaryEmailAddress?.toLowerCase() === env.ZOHO_ALLOWED_ADDRESS.trim().toLowerCase());
+        if (!approved) {
+          return html("This Zoho account does not contain the authorized sender address. No connection was saved.", 403);
         }
         await env.OAUTH_TOKENS.put("zoho_refresh_token", tokenData.refresh_token);
+        await env.OAUTH_TOKENS.put("zoho_sender", JSON.stringify({
+          accountId: String(approved.accountId), address: approved.primaryEmailAddress
+        }));
         await env.OAUTH_TOKENS.put("zoho_accounts_domain", "https://accounts.zoho.com");
         if (tokenData.api_domain) {
           await env.OAUTH_TOKENS.put("zoho_api_domain", tokenData.api_domain);
         }
-        return html("SUCCESS: Zoho authorized Handy-Candy and the refresh token was stored securely. Return to ChatGPT and say: ZOHO TOKEN STORED.");
+        return html("Zoho Mail connected: " + approved.primaryEmailAddress +
+          ". Sending remains locked until the approval system is built.");
       }
 
       return html("Zoho authorized the app, but no refresh token was returned. Return to ChatGPT and say: NO REFRESH TOKEN.");
