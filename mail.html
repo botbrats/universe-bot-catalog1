@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Handy-Candy Email</title>
+<style>body{font:17px system-ui;max-width:900px;margin:30px auto;padding:20px;background:#f5faf8;color:#183139}input,textarea{box-sizing:border-box;width:100%;font:inherit;padding:10px;margin:6px 0 16px}button,a{font:inherit}button{padding:10px;margin:6px}article{background:white;padding:20px;border:1px solid #cbdad4;margin:18px 0}pre{white-space:pre-wrap}#status{white-space:pre-wrap}label{display:block}</style>
+<h1>Handy-Candy Email 🍬</h1><p>Private drafts and delivery log. Sending submits the exact saved draft. Provider acceptance does not guarantee delivery.</p>
+<p><a href="/api/zoho/connect">Sign in with your connected Zoho mailbox</a> · <a href="/">Back to catalog</a></p>
+<p id="status" role="status">Loading…</p>
+<button id="sign-out" type="button">Sign out</button>
+<label>Ten-inquiry file<input id="inquiry-file" type="file" accept=".json,application/json"></label><button id="load-ten">Load the ten property inquiries</button><button id="send-ten">Send the ten saved property inquiries</button>
+<p>The ten-inquiry action covers only these prepared property inquiries. It does not accept leases or contracts.</p>
+<form id="compose"><label>Recipient<input name="to" type="email" required></label><label>Subject<input name="subject" maxlength="250" required></label><label>Email<textarea name="body" rows="10" required></textarea></label><button>Save draft</button></form>
+<section id="drafts" aria-label="Drafts and delivery log"></section><script src="/email-ui.js"></script></html>

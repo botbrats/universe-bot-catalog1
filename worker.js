@@ -1,3 +1,5 @@
+import { emailRoute, cookie } from "./email.js";
+export { EmailQueue } from "./email.js";
 const ZOHO_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/zoho/callback";
 const CHAT_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
 
@@ -42,6 +44,7 @@ function html(message, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/email/")) return emailRoute(request, env);
 
     // Do not expose account state or connected mailbox addresses on the public site.
     if (url.pathname === "/api/zoho/diagnostics" && request.method === "GET") {
@@ -66,7 +69,9 @@ export default {
       await env.OAUTH_TOKENS.put("zoho_oauth_state:" + state, "pending", { expirationTtl: 600 });
       auth.searchParams.set("state", state);
 
-      return Response.redirect(auth.toString(), 302);
+      return new Response(null, {status:302,headers:{Location:auth.toString(),
+        "Set-Cookie":"__Host-candy-oauth="+state+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600",
+        "Cache-Control":"no-store"}});
     }
 
     // Zoho redirects here after the account owner approves access.
@@ -82,7 +87,7 @@ export default {
       const code = url.searchParams.get("code");
       if (!code) return html("Missing Zoho authorization code.", 400);
       const state = url.searchParams.get("state");
-      if (!state || !/^[0-9a-f-]{36}$/.test(state) ||
+      if (!state || cookie(request, "__Host-candy-oauth") !== state || !/^[0-9a-f-]{36}$/.test(state) ||
           await env.OAUTH_TOKENS.get("zoho_oauth_state:" + state) !== "pending") {
         return html("Zoho connection expired. Start again.", 400);
       }
@@ -127,8 +132,11 @@ export default {
         if (tokenData.api_domain) {
           await env.OAUTH_TOKENS.put("zoho_api_domain", tokenData.api_domain);
         }
-        return html("Zoho Mail connected: " + approved.primaryEmailAddress +
-          ". Sending remains locked until the approval system is built.");
+        const session=crypto.randomUUID();
+        await env.OAUTH_TOKENS.put("candy_session:"+session,"owner",{expirationTtl:86400});
+        return new Response(null,{status:302,headers:{Location:"/mail.html",
+          "Set-Cookie":"__Host-candy-session="+session+"; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400",
+          "Cache-Control":"no-store"}});
       }
 
       return html("Zoho authorized the app, but no refresh token was returned. Return to ChatGPT and say: NO REFRESH TOKEN.");

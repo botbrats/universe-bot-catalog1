@@ -52,15 +52,12 @@ function draftControls(container, reply, waiting=false){
   input.value=`Please revise this draft. My changes: \n\nDraft:\n${reply}`;
   input.focus();input.setSelectionRange(39,39);
  };
- const approve=document.createElement("button");approve.type="button";
- approve.textContent="Approve";approve.disabled=true;
- approve.title="Available after customer sign-in and the server approval queue are connected.";
  const send=document.createElement("button");send.type="button";
- send.textContent="Send email";send.disabled=true;
- send.title="Available after verified approval and the email provider are connected.";
+ send.textContent="Open email workspace";send.disabled=waiting;
+ send.onclick=()=>{window.location.href="/mail.html"};
  const status=document.createElement("small");
- status.textContent=waiting?"Draft in progress. Approval and sending are locked.":"Draft only. Approval and email sending need a connected customer account.";
- bar.append(edit,approve,send,status);container.appendChild(bar);
+ status.textContent=waiting?"Draft in progress.":"Open the email workspace to enter a recipient, save, edit, and send an email.";
+ bar.append(edit,send,status);container.appendChild(bar);
 }
 
 async function sendBotMessage(e,botName){
