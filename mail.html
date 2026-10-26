@@ -1,11 +1,13 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Handy-Candy Email</title>
-<style>body{font:17px system-ui;max-width:900px;margin:30px auto;padding:20px;background:#f5faf8;color:#183139}input,textarea{box-sizing:border-box;width:100%;font:inherit;padding:10px;margin:6px 0 16px}button,a{font:inherit}button{padding:10px;margin:6px}article{background:white;padding:20px;border:1px solid #cbdad4;margin:18px 0}pre{white-space:pre-wrap}#status{white-space:pre-wrap}label{display:block}</style>
-<h1>Handy-Candy Email 🍬</h1><p>Private drafts and delivery log. Sending submits the exact saved draft. Provider acceptance does not guarantee delivery.</p>
+<style>body{font:17px system-ui;max-width:900px;margin:30px auto;padding:20px;background:#f5faf8;color:#183139}input,textarea{box-sizing:border-box;width:100%;font:inherit;padding:10px;margin:6px 0 16px}button,a{font:inherit}button{padding:10px;margin:6px}article{background:white;padding:20px;border:1px solid #cbdad4;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}#status{white-space:pre-wrap}label{display:block}.needs{color:#8a3c00;font-weight:700}</style>
+<h1>Handy-Candy Email 🍬</h1><p>Private drafts and delivery log. Each message must be reviewed and approved individually. Nothing is sent when a batch is imported.</p>
 <p><a href="/api/zoho/connect">Sign in with your connected Zoho mailbox</a> · <a href="/">Back to catalog</a></p>
 <p id="status" role="status">Loading…</p>
 <button id="sign-out" type="button">Sign out</button>
-<label>Ten-inquiry file<input id="inquiry-file" type="file" accept=".json,application/json"></label><button id="load-ten">Load the ten property inquiries</button><button id="send-ten">Send the ten saved property inquiries</button>
-<p>The ten-inquiry action covers only these prepared property inquiries. It does not accept leases or contracts.</p>
-<form id="compose"><label>Recipient<input name="to" type="email" required></label><label>Subject<input name="subject" maxlength="250" required></label><label>Email<textarea name="body" rows="10" required></textarea></label><button>Save draft</button></form>
+<h2>Import a batch of up to 10</h2>
+<label>Prepared inquiry JSON file<input id="inquiry-file" type="file" accept=".json,application/json"></label>
+<button id="load-ten" type="button">Import up to 10 drafts (does not send)</button>
+<p>Drafts without a verified recipient will be saved for editing, but cannot be sent until you add the correct address. Each message has its own approval-and-send button.</p>
+<form id="compose"><h2>Create or edit a draft</h2><label>Recipient (leave blank if not yet confirmed)<input name="to" type="email"></label><label>Subject<input name="subject" maxlength="250" required></label><label>Email<textarea name="body" rows="10" required></textarea></label><button>Save draft</button></form>
 <section id="drafts" aria-label="Drafts and delivery log"></section><script src="/email-ui.js"></script></html>
