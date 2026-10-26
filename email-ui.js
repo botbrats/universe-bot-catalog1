@@ -6,19 +6,32 @@ async function api(path="",method="GET",body) {
  const data=await r.json();if(!r.ok)throw new Error(data.error||"Email service unavailable.");return data;
 }
 function status(text){statusNode.textContent=text}
-async function reload(){const data=await api();drafts=data.drafts;render();status("Drafts and delivery log loaded.")}
+async function reload(message="Drafts and delivery log loaded."){const data=await api();drafts=data.drafts;render();status(message)}
 function render(){
  draftNode.replaceChildren();
  for(const d of drafts){
   const a=document.createElement("article"),title=document.createElement("h2"),to=document.createElement("p"),body=document.createElement("pre"),state=document.createElement("p");
-  title.textContent=d.subject;to.textContent="To: "+d.to;body.textContent=d.body;
-  state.textContent=d.status==="sent"?"Zoho accepted · Message ID "+d.messageId:d.status==="draft"?"Saved draft":d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
+  title.textContent=d.subject;to.textContent="To: "+(d.to||"Recipient not supplied");body.textContent=d.body;
+  if(d.status==="sent")state.textContent="Zoho accepted · Message ID "+d.messageId;
+  else if(d.status==="draft"&&!d.to){state.textContent="Recipient needed before approval and sending.";state.className="needs"}
+  else state.textContent=d.status==="draft"?"Saved draft — review before approving":d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
   a.append(title,to,body,state);
   if(d.status==="draft"){
-   const edit=document.createElement("button"),send=document.createElement("button");
-   edit.textContent="Edit";edit.onclick=()=>{const f=document.getElementById("compose");f.elements.to.value=d.to;f.elements.subject.value=d.subject;f.elements.body.value=d.body;f.dataset.id=d.id;f.dataset.revision=d.revision;f.scrollIntoView()};
-   send.textContent="Send this email";send.onclick=async()=>{send.disabled=true;try{await api("/"+d.id+"/send","POST",{revision:d.revision});await reload()}catch(e){status(e.message);send.disabled=false}};
-   a.append(edit,send);
+   const edit=document.createElement("button");
+   edit.textContent="Review / edit";edit.onclick=()=>{const f=document.getElementById("compose");f.elements.to.value=d.to||"";f.elements.subject.value=d.subject;f.elements.body.value=d.body;f.dataset.id=d.id;f.dataset.revision=d.revision;f.scrollIntoView({behavior:"smooth"})};
+   a.append(edit);
+   if(d.to&&/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(d.to)){
+    const approve=document.createElement("button");
+    approve.textContent="Approve & send this email";
+    approve.onclick=async()=>{
+     const confirmation="Approve sending this exact email via Zoho?\n\nTo: "+d.to+"\nSubject: "+d.subject+"\n\nReview the full message above before confirming.";
+     if(!window.confirm(confirmation))return;
+     approve.disabled=true;
+     try{await api("/"+d.id+"/send","POST",{revision:d.revision});await reload("Approval submitted. Check the status shown on the message below.");}
+     catch(e){status(e.message);approve.disabled=false}
+    };
+    a.append(approve);
+   }
   }
   draftNode.append(a);
  }
@@ -26,28 +39,26 @@ function render(){
 document.getElementById("compose").onsubmit=async e=>{
  e.preventDefault();const f=e.target,button=f.querySelector("button");button.disabled=true;
  try{const body=Object.fromEntries(new FormData(f));if(f.dataset.id)body.revision=Number(f.dataset.revision);
- await api(f.dataset.id?"/"+f.dataset.id:"",f.dataset.id?"PUT":"POST",body);f.reset();delete f.dataset.id;delete f.dataset.revision;await reload()}catch(e){status(e.message)}finally{button.disabled=false}
+ await api(f.dataset.id?"/"+f.dataset.id:"",f.dataset.id?"PUT":"POST",body);f.reset();delete f.dataset.id;delete f.dataset.revision;await reload("Draft saved.")}catch(e){status(e.message)}finally{button.disabled=false}
 };
-async function propertyDrafts(){
- if(preparedInquiries.length!==10)throw new Error("Choose your ten-inquiry JSON file first.");
- return preparedInquiries;
-}
 document.getElementById("inquiry-file").onchange=async e=>{
- try{const file=e.target.files[0];if(!file||file.size>300000)throw new Error("Choose an inquiry file below 300 KB.");
- const data=JSON.parse(await file.text());if(!Array.isArray(data)||data.length!==10||data.some(x=>!x.to||!x.subject||!x.body))throw new Error("Expected ten inquiries with to, subject, and body.");
- preparedInquiries=data;status("Ten inquiries loaded locally. Click Load to save them privately.");}catch(err){status(err.message)}
+ try{
+  const file=e.target.files[0];if(!file||file.size>300000)throw new Error("Choose a prepared inquiry JSON file below 300 KB.");
+  const data=JSON.parse(await file.text());
+  if(!Array.isArray(data)||data.length<1||data.length>10||data.some(x=>typeof x.subject!=="string"||typeof x.body!=="string"))throw new Error("Choose a batch containing 1–10 inquiries with subject and body fields.");
+  preparedInquiries=data.map(x=>({to:typeof x.to==="string"?x.to:"",subject:x.subject,body:x.body}));
+  status(preparedInquiries.length+" inquiries loaded locally. Nothing has been saved or sent yet. Click Import to save drafts.");
+ }catch(err){preparedInquiries=[];status(err.message)}
 };
 document.getElementById("load-ten").onclick=async e=>{
- e.target.disabled=true;try{for(const d of await propertyDrafts())await api("","POST",d);await reload();status("Ten property inquiries saved. Nothing sent.")}catch(e){status(e.message)}finally{e.target.disabled=false}
-};
-document.getElementById("send-ten").onclick=async e=>{
+ if(!preparedInquiries.length){status("Choose a prepared inquiry JSON file first.");return}
  e.target.disabled=true;
  try{
-  const prepared=await propertyDrafts();await reload();
-  const batch=prepared.map(p=>drafts.find(d=>d.to===p.to&&d.subject===p.subject&&d.body===p.body));
-  if(batch.some(d=>!d))throw new Error("Load the ten inquiries first. Edited drafts can be sent individually.");
-  for(const d of batch){if(d.status==="draft")await api("/"+d.id+"/send","POST",{revision:d.revision});}
-  await reload();status("Batch finished. Check each delivery status below; unknown results are never automatically resent.");
- }catch(e){status(e.message)}finally{e.target.disabled=false}
+  let saved=0;
+  for(const d of preparedInquiries){await api("","POST",d);saved++}
+  await reload(saved+" drafts imported into the private queue. Nothing was sent. Review each message and approve individually.");
+  preparedInquiries=[];
+  document.getElementById("inquiry-file").value="";
+ }catch(e){status("Import stopped: "+e.message+" Already imported drafts remain saved; retrying identical drafts will not create duplicates.")}finally{e.target.disabled=false}
 };
 reload().catch(e=>status(e.message));
