@@ -16,20 +16,22 @@ export async function emailRoute(request, env) {
   }
   return env.EMAIL_QUEUE.get(env.EMAIL_QUEUE.idFromName("owner")).fetch(request);
 }
-function validate(input) {
+function validate(input, requireRecipient=false) {
   const {to,subject,body} = input;
-  if (typeof to !== "string" || to.length>254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(to))
-    throw new Error("Enter one valid recipient email address.");
+  const recipient = typeof to === "string" ? to.trim() : "";
+  if (requireRecipient && (!recipient || recipient.length>254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(recipient)))
+    throw new Error("Add one valid recipient email address before approving this message.");
+  if (recipient && (recipient.length>254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(recipient)))
+    throw new Error("Enter one valid recipient email address, or leave it blank until confirmed.");
   if (typeof subject !== "string" || !subject.trim() || subject.length>250 || /[\r\n]/.test(subject))
     throw new Error("Enter a subject of 250 characters or less.");
   if (typeof body !== "string" || !body.trim() || body.length>30000)
     throw new Error("Enter an email body of 30,000 characters or less.");
-  return {to:to.trim(),subject,body};
+  return {to:recipient,subject,body};
 }
 export class EmailQueue {
   constructor(state,env) { this.state=state; this.env=env; this.tail=Promise.resolve(); }
   fetch(request) {
-    // Serialize concurrent clicks and imports on the single owner queue.
     const task=this.tail.then(()=>this.handle(request));
     this.tail=task.catch(()=>{});
     return task.catch(()=>json({error:"Email service error. Check the delivery log before retrying."},500));
@@ -70,8 +72,9 @@ export class EmailQueue {
       await this.state.storage.put("draft:"+id,draft);return json({draft});
     }
     if(request.method!=="POST"||!send)return json({error:"Method not allowed."},405);
-    if(draft.status!=="draft")return json({draft}); // Never issue a second provider send.
+    if(draft.status!=="draft")return json({draft});
     if(input.revision!==draft.revision)return json({error:"Draft changed. Reload before sending."},409);
+    try { validate(draft,true); } catch(e) { return json({error:e.message},400); }
     const sender=JSON.parse(await this.env.OAUTH_TOKENS.get("zoho_sender")||"null");
     const refresh=await this.env.OAUTH_TOKENS.get("zoho_refresh_token");
     if(!sender||!refresh||sender.address.toLowerCase()!==this.env.ZOHO_ALLOWED_ADDRESS?.trim().toLowerCase())
@@ -87,7 +90,6 @@ export class EmailQueue {
       if(!response.ok||!result.access_token)return json({error:"Zoho authentication failed. Reconnect the mailbox."},502);
       token=result.access_token;
     }catch{return json({error:"Could not reach Zoho authentication; email was not submitted."},502)}
-    // Durable marker BEFORE the provider call: ambiguous results never auto-retry.
     draft.status="submitting";draft.submittedAt=new Date().toISOString();
     await this.state.storage.put("draft:"+id,draft);
     try {
