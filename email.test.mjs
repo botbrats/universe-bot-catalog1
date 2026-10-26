@@ -65,3 +65,11 @@ test("timeout after submission is unknown and cannot resend",async()=>{
  await send();assert.equal(submissions,1);
  }finally{globalThis.fetch=original}
 });
+
+test("drafts with unknown recipients can be saved but cannot be sent",async()=>{
+ const {queue,req}=fixture();
+ const saved=await queue.fetch(req("","POST",{to:"",subject:"Find contact email",body:"Contact details to confirm."}));
+ assert.equal(saved.status,201);
+ const {draft}=await saved.json();
+ assert.equal((await queue.fetch(req("/"+draft.id+"/send","POST",{revision:1}))).status,400);
+});
