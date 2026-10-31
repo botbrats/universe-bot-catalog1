@@ -70,3 +70,12 @@ document.getElementById("load-ten").onclick=async e=>{
  }catch(e){status("Import stopped: "+e.message+" Already imported drafts remain saved; retrying identical drafts will not create duplicates.")}finally{e.target.disabled=false}
 };
 reload().catch(e=>status(e.message));
+document.getElementById("clear-all").onclick=()=>{
+ if(!window.confirm("Clear the current unsaved import selection and compose fields? Saved drafts and sent emails will not be deleted."))return;
+ preparedInquiries=[];
+ const file=document.getElementById("inquiry-file");
+ if(file)file.value="";
+ const form=document.getElementById("compose");
+ if(form){form.reset();delete form.dataset.id;delete form.dataset.revision;}
+ status("Unsaved inputs cleared. Saved drafts and sent emails were not changed.");
+};
