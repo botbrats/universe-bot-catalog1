@@ -5,7 +5,7 @@
   "durable_objects": {"bindings":[{"name":"EMAIL_QUEUE","class_name":"EmailQueue"}]},
   "migrations": [{"tag":"email-queue-v1","new_sqlite_classes":["EmailQueue"]}],
   "vars": {
-    "ZOHO_ALLOWED_ADDRESS": "consolidatestores@zohomail.com"
+    "ZOHO_ALLOWED_ADDRESS": "consignmentstores@zohomail.com"
   },
   "assets": {
     "directory": ".",
