@@ -38,7 +38,7 @@ export class EmailQueue {
   }
   async handle(request) {
     const url=new URL(request.url);
-    const match=url.pathname.match(/^\/api\/email\/drafts(?:\/([0-9a-f-]{36})(\/send)?)?$/);
+    const match=url.pathname.match(/^\/api\/email\/drafts(?:\/([0-9a-f-]{36})(?:\/(approve|send))?)?$/);
     if (!match) return json({error:"Not found."},404);
     const id=match[1], action=match[2];
     if (!id && request.method==="GET") {
