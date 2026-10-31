@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Handy-Candy Email</title>
-<style>body{font:17px system-ui;max-width:900px;margin:30px auto;padding:20px;background:#f5faf8;color:#183139}input,textarea{box-sizing:border-box;width:100%;font:inherit;padding:10px;margin:6px 0 16px}button,a{font:inherit}button{padding:10px;margin:6px}article{background:white;padding:20px;border:1px solid #cbdad4;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}#status{white-space:pre-wrap}label{display:block}.needs{color:#8a3c00;font-weight:700}</style>
+<style>body{font:17px system-ui;max-width:900px;margin:30px auto;padding:20px;background:#f5faf8;color:#183139}input,textarea{box-sizing:border-box;width:100%;font:inherit;padding:10px;margin:6px 0 16px}button,a{font:inherit}button{padding:10px;margin:6px}article{background:white;padding:20px;border:1px solid #cbdad4;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}#status{white-space:pre-wrap}label{display:block}.needs{color:#8a3c00;font-weight:700}#page-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:28px 0;padding:16px;background:#e8f1ed;border-radius:12px}#page-actions button{cursor:pointer}.portal-link button{background:#183139;color:white;border:0;border-radius:6px}.hint{width:100%;font-size:14px;color:#53666a;margin:0}</style>
 <h1>Handy-Candy Email 🍬</h1><p>Private drafts and delivery log. Each message must be reviewed and approved individually. Nothing is sent when a batch is imported.</p>
 <p><a href="/api/zoho/connect">Sign in with your connected Zoho mailbox</a> · <a href="/">Back to catalog</a></p>
 <p id="status" role="status">Loading…</p>
@@ -10,4 +10,10 @@
 <button id="load-ten" type="button">Import up to 10 drafts (does not send)</button>
 <p>Drafts without a verified recipient will be saved for editing, but cannot be sent until you add the correct address. Each message has separate Approve and Send buttons. Approval never sends.</p>
 <form id="compose"><h2>Create or edit a draft</h2><label>Recipient (leave blank if not yet confirmed)<input name="to" type="email"></label><label>Subject<input name="subject" maxlength="250" required></label><label>Email<textarea name="body" rows="10" required></textarea></label><button>Save draft</button></form>
-<section id="drafts" aria-label="Drafts and delivery log"></section><script src="/email-ui.js"></script></html>
+<section id="drafts" aria-label="Drafts and delivery log"></section>
+<div id="page-actions" aria-label="Page actions">
+  <button id="clear-all" type="button">Clear All Inputs</button>
+  <a class="portal-link" href="/mail.html#drafts"><button type="button">Open Private Handy-Candy Portal</button></a>
+  <p class="hint">Clear All removes only the current unsaved 10-item import selection and compose fields. It does not delete saved drafts or sent emails.</p>
+</div>
+<script src="/email-ui.js"></script></html>
