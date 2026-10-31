@@ -14,7 +14,9 @@ function render(){
   title.textContent=d.subject;to.textContent="To: "+(d.to||"Recipient not supplied");body.textContent=d.body;
   if(d.status==="sent")state.textContent="Zoho accepted · Message ID "+d.messageId;
   else if(d.status==="draft"&&!d.to){state.textContent="Recipient needed before approval and sending.";state.className="needs"}
-  else state.textContent=d.status==="draft"?"Saved draft — review before approving":d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
+  else if(d.status==="draft")state.textContent="Saved draft — review before approving";
+  else if(d.status==="approved")state.textContent="Approved — ready for your separate Send action";
+  else state.textContent=d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
   a.append(title,to,body,state);
   if(d.status==="draft"||d.status==="approved"){
    const edit=document.createElement("button");
