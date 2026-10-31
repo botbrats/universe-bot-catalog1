@@ -20,7 +20,7 @@ function render(){
    const edit=document.createElement("button");
    edit.textContent=d.status==="approved"?"Edit (approval will reset)":"Review / edit";edit.onclick=()=>{const f=document.getElementById("compose");f.elements.to.value=d.to||"";f.elements.subject.value=d.subject;f.elements.body.value=d.body;f.dataset.id=d.id;f.dataset.revision=d.revision;f.scrollIntoView({behavior:"smooth"})};
    a.append(edit);
-   if(d.to&&/^[^\\s@,;<>]+@[^\\s@,;<>]+\\.[^\\s@,;<>]+$/.test(d.to)){
+   if(d.to&&/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(d.to)){
     const action=document.createElement("button");
     action.textContent=d.status==="approved"?"Send":"Approve";
     action.onclick=async()=>{
