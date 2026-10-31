@@ -40,7 +40,7 @@ export class EmailQueue {
     const url=new URL(request.url);
     const match=url.pathname.match(/^\/api\/email\/drafts(?:\/([0-9a-f-]{36})(\/send)?)?$/);
     if (!match) return json({error:"Not found."},404);
-    const id=match[1], send=match[2];
+    const id=match[1], action=match[2];
     if (!id && request.method==="GET") {
       const rows=await this.state.storage.list({prefix:"draft:"});
       return json({drafts:[...rows.values()]});
@@ -64,16 +64,23 @@ export class EmailQueue {
     }
     const draft=id&&await this.state.storage.get("draft:"+id);
     if(!draft)return json({error:"Draft not found."},404);
-    if(request.method==="PUT"&&!send) {
-      if(draft.status!=="draft")return json({error:"A submitted email cannot be edited or resent."},409);
+    if(request.method==="PUT"&&!action) {
+      if(!["draft","approved"].includes(draft.status))return json({error:"A submitted email cannot be edited or resent."},409);
       if(input.revision!==draft.revision)return json({error:"Draft changed. Reload before editing."},409);
       let fields;try{fields=validate(input)}catch(e){return json({error:e.message},400)}
-      Object.assign(draft,fields,{revision:draft.revision+1});
+      Object.assign(draft,fields,{revision:draft.revision+1,status:"draft",approvedAt:null});
       await this.state.storage.put("draft:"+id,draft);return json({draft});
     }
-    if(request.method!=="POST"||!send)return json({error:"Method not allowed."},405);
-    if(draft.status!=="draft")return json({draft});
-    if(input.revision!==draft.revision)return json({error:"Draft changed. Reload before sending."},409);
+    if(request.method!=="POST"||!action)return json({error:"Method not allowed."},405);
+    if(input.revision!==draft.revision)return json({error:"Draft changed. Reload before continuing."},409);
+    if(action==="approve") {
+      if(draft.status!=="draft")return json({error:"Only an unapproved draft can be approved."},409);
+      try { validate(draft,true); } catch(e) { return json({error:e.message},400); }
+      draft.status="approved";draft.approvedAt=new Date().toISOString();
+      await this.state.storage.put("draft:"+id,draft);
+      return json({draft});
+    }
+    if(draft.status!=="approved")return json({error:"Approve this exact draft before sending."},409);
     try { validate(draft,true); } catch(e) { return json({error:e.message},400); }
     const sender=JSON.parse(await this.env.OAUTH_TOKENS.get("zoho_sender")||"null");
     const refresh=await this.env.OAUTH_TOKENS.get("zoho_refresh_token");
