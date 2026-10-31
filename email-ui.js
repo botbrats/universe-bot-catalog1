@@ -16,21 +16,27 @@ function render(){
   else if(d.status==="draft"&&!d.to){state.textContent="Recipient needed before approval and sending.";state.className="needs"}
   else state.textContent=d.status==="draft"?"Saved draft — review before approving":d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
   a.append(title,to,body,state);
-  if(d.status==="draft"){
+  if(d.status==="draft"||d.status==="approved"){
    const edit=document.createElement("button");
-   edit.textContent="Review / edit";edit.onclick=()=>{const f=document.getElementById("compose");f.elements.to.value=d.to||"";f.elements.subject.value=d.subject;f.elements.body.value=d.body;f.dataset.id=d.id;f.dataset.revision=d.revision;f.scrollIntoView({behavior:"smooth"})};
+   edit.textContent=d.status==="approved"?"Edit (approval will reset)":"Review / edit";edit.onclick=()=>{const f=document.getElementById("compose");f.elements.to.value=d.to||"";f.elements.subject.value=d.subject;f.elements.body.value=d.body;f.dataset.id=d.id;f.dataset.revision=d.revision;f.scrollIntoView({behavior:"smooth"})};
    a.append(edit);
-   if(d.to&&/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(d.to)){
-    const approve=document.createElement("button");
-    approve.textContent="Approve & send this email";
-    approve.onclick=async()=>{
-     const confirmation="Approve sending this exact email via Zoho?\n\nTo: "+d.to+"\nSubject: "+d.subject+"\n\nReview the full message above before confirming.";
-     if(!window.confirm(confirmation))return;
-     approve.disabled=true;
-     try{await api("/"+d.id+"/send","POST",{revision:d.revision});await reload("Approval submitted. Check the status shown on the message below.");}
-     catch(e){status(e.message);approve.disabled=false}
+   if(d.to&&/^[^\\s@,;<>]+@[^\\s@,;<>]+\\.[^\\s@,;<>]+$/.test(d.to)){
+    const action=document.createElement("button");
+    action.textContent=d.status==="approved"?"Send":"Approve";
+    action.onclick=async()=>{
+     if(d.status==="draft"){
+      if(!window.confirm("Approve this exact email for a separate Send step?\\n\\nTo: "+d.to+"\\nSubject: "+d.subject+"\\n\\nThis will NOT send it."))return;
+      action.disabled=true;
+      try{await api("/"+d.id+"/approve","POST",{revision:d.revision});await reload("Approved only. Review the message, then press Send when ready.");}
+      catch(e){status(e.message);action.disabled=false}
+     }else{
+      if(!window.confirm("Send this approved email now via consignmentstores@zohomail.com?\\n\\nTo: "+d.to+"\\nSubject: "+d.subject))return;
+      action.disabled=true;
+      try{await api("/"+d.id+"/send","POST",{revision:d.revision});await reload("Send request processed. Check provider status below.");}
+      catch(e){status(e.message);action.disabled=false}
+     }
     };
-    a.append(approve);
+    a.append(action);
    }
   }
   draftNode.append(a);
