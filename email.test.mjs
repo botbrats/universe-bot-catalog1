@@ -71,5 +71,5 @@ test("drafts with unknown recipients can be saved but cannot be sent",async()=>{
  const saved=await queue.fetch(req("","POST",{to:"",subject:"Find contact email",body:"Contact details to confirm."}));
  assert.equal(saved.status,201);
  const {draft}=await saved.json();
- assert.equal((await queue.fetch(req("/"+draft.id+"/send","POST",{revision:1}))).status,400);
+ assert.equal((await queue.fetch(req("/"+draft.id+"/approve","POST",{revision:1}))).status,400);
 });
