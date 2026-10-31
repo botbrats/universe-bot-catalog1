@@ -8,6 +8,6 @@
 <h2>Import a batch of up to 10</h2>
 <label>Prepared inquiry JSON file<input id="inquiry-file" type="file" accept=".json,application/json"></label>
 <button id="load-ten" type="button">Import up to 10 drafts (does not send)</button>
-<p>Drafts without a verified recipient will be saved for editing, but cannot be sent until you add the correct address. Each message has its own approval-and-send button.</p>
+<p>Drafts without a verified recipient will be saved for editing, but cannot be sent until you add the correct address. Each message has separate Approve and Send buttons. Approval never sends.</p>
 <form id="compose"><h2>Create or edit a draft</h2><label>Recipient (leave blank if not yet confirmed)<input name="to" type="email"></label><label>Subject<input name="subject" maxlength="250" required></label><label>Email<textarea name="body" rows="10" required></textarea></label><button>Save draft</button></form>
 <section id="drafts" aria-label="Drafts and delivery log"></section><script src="/email-ui.js"></script></html>
