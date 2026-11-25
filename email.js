@@ -1,3 +1,4 @@
+import { gmailRoute } from "./gmail.js";
 const headers = { "Cache-Control": "no-store" };
 const json = (data, status = 200) => Response.json(data, { status, headers });
 export function cookie(request, name) {
@@ -32,7 +33,10 @@ function validate(input, requireRecipient=false) {
     throw new Error("Enter a subject of 250 characters or less.");
   if (typeof body !== "string" || !body.trim() || body.length>30000)
     throw new Error("Enter an email body of 30,000 characters or less.");
-  return {to:recipient,subject,body};
+  const threadId = typeof input.threadId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(input.threadId) ? input.threadId : "";
+  const inReplyTo = typeof input.inReplyTo === "string" && input.inReplyTo.length <= 998 && !/[\r\n]/.test(input.inReplyTo) ? input.inReplyTo : "";
+  const references = typeof input.references === "string" && input.references.length <= 4000 && !/[\r\n]/.test(input.references) ? input.references : "";
+  return {to:recipient,subject,body,threadId,inReplyTo,references};
 }
 export class EmailQueue {
   constructor(state,env) { this.state=state; this.env=env; this.tail=Promise.resolve(); }
@@ -43,6 +47,10 @@ export class EmailQueue {
   }
   async handle(request) {
     const url=new URL(request.url);
+    if (url.pathname === "/api/email/inbox" || url.pathname.startsWith("/api/email/thread/")) {
+      if (request.headers.get("X-Candy-Mail-Provider") !== "gmail") return json({error:"Inbox reading is available for the connected Gmail mailbox."},403);
+      return gmailRoute(request,this.env);
+    }
     const match=url.pathname.match(/^\/api\/email\/drafts(?:\/([0-9a-f-]{36})(?:\/(approve|send))?)?$/);
     if (!match) return json({error:"Not found."},404);
     const id=match[1], action=match[2];
@@ -129,14 +137,16 @@ export class EmailQueue {
         const sender=await this.env.OAUTH_TOKENS.get("google_sender");
         const encodedSubject=btoa(String.fromCharCode(...new TextEncoder().encode(draft.subject)));
         const mime=["From: "+sender,"To: "+draft.to,"Subject: =?UTF-8?B?"+encodedSubject+"?=",
+          ...(draft.inReplyTo?["In-Reply-To: "+draft.inReplyTo]:[]),
+          ...(draft.references?["References: "+draft.references]:[]),
           "MIME-Version: 1.0","Content-Type: text/plain; charset=UTF-8",
-          "Content-Transfer-Encoding: 8bit","","",draft.body].join("\r\n");
+          "Content-Transfer-Encoding: 8bit","",draft.body].join("\r\n");
         const bytes=new TextEncoder().encode(mime);
         let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
         const raw=btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
         response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{
           method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
-          body:JSON.stringify({raw}),signal:AbortSignal.timeout(20000)
+          body:JSON.stringify({raw,...(draft.threadId?{threadId:draft.threadId}:{})}),signal:AbortSignal.timeout(20000)
         });
         const result=await response.json();
         providerMessageId=result.id||"";
