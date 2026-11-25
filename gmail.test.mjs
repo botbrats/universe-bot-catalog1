@@ -83,3 +83,39 @@ test("Gmail inbox routes reject Zoho provider sessions", async () => {
   }));
   assert.equal(response.status, 403);
 });
+
+test("Gmail reply sends in the existing thread only after approval", async () => {
+  const { queue } = fixture();
+  const original = globalThis.fetch;
+  let submitted;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes("oauth2.googleapis.com")) return Response.json({ access_token: "access-test" });
+    if (String(url).includes("/messages/send")) {
+      submitted = JSON.parse(options.body);
+      return Response.json({ id: "sent-1", threadId: "t1" });
+    }
+    throw new Error("Unexpected request " + url);
+  };
+  const make = (path, body) => new Request("https://candy.example/api/email/drafts" + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Candy-Mail-Provider": "gmail" },
+    body: JSON.stringify(body)
+  });
+  try {
+    const saved = await queue.fetch(make("", {
+      to: "sender@example.com", subject: "Re: Hello", body: "Thanks for your message.",
+      threadId: "t1", inReplyTo: "<m1@example.com>", references: "<m0@example.com> <m1@example.com>"
+    }));
+    const { draft } = await saved.json();
+    assert.equal((await queue.fetch(make("/" + draft.id + "/approve", { revision: 1 }))).status, 200);
+    const sent = await queue.fetch(make("/" + draft.id + "/send", { revision: 1 }));
+    const result = await sent.json();
+    assert.equal(result.draft.status, "sent");
+    assert.equal(result.draft.provider, "gmail");
+    assert.equal(submitted.threadId, "t1");
+    const raw = submitted.raw.replace(/-/g, "+").replace(/_/g, "/");
+    const mime = atob(raw);
+    assert.match(mime, /In-Reply-To: <m1@example.com>/);
+    assert.match(mime, /References: <m0@example.com> <m1@example.com>/);
+  } finally { globalThis.fetch = original; }
+});
