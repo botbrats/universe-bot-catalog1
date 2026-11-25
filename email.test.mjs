@@ -53,7 +53,9 @@ test("concurrent send clicks issue one provider submission",async()=>{
  const send=()=>queue.fetch(req("/"+draft.id+"/send","POST",{revision:1}));
  const results=await Promise.all([send(),send()]);
  assert.equal(submissions,1);
- for(const r of results)assert.equal((await r.json()).draft.status,"sent");
+ const payloads=await Promise.all(results.map(r=>r.json()));
+ assert.ok(payloads.some(x=>x.draft?.status==="sent"));
+ assert.ok(payloads.some(x=>x.error==="Only an approved draft can be sent." || x.error==="Approve this exact draft before sending."));
  }finally{globalThis.fetch=original}
 });
 test("timeout after submission is unknown and cannot resend",async()=>{
