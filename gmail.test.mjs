@@ -53,7 +53,7 @@ test("Gmail inbox returns message metadata without exposing provider payloads", 
 test("Gmail thread reader returns plain text and reply headers", async () => {
   const { queue } = fixture();
   const original = globalThis.fetch;
-  const encoded = btoa("Hello from the sender").replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
+  const encoded = btoa("Hello from the sender").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   globalThis.fetch = async url => {
     if (String(url).includes("oauth2.googleapis.com")) return Response.json({ access_token: "access-test" });
     if (String(url).includes("/threads/t1?")) return Response.json({
