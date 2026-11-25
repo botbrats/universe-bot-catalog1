@@ -6,6 +6,63 @@ async function api(path="",method="GET",body) {
  const data=await r.json();if(!r.ok)throw new Error(data.error||"Email service unavailable.");return data;
 }
 function status(text){statusNode.textContent=text}
+async function gmailApi(path) {
+ const r=await fetch(path,{headers:{"Accept":"application/json"}});
+ const data=await r.json();if(!r.ok)throw new Error(data.error||"Gmail is unavailable.");return data;
+}
+const inboxNode=document.getElementById("inbox-list"),threadNode=document.getElementById("thread-view"),inboxStatus=document.getElementById("inbox-status");
+function inboxMessage(text){inboxStatus.textContent=text}
+async function loadInbox(){
+ inboxMessage("Loading Gmail inbox…");inboxNode.replaceChildren();threadNode.replaceChildren();
+ try{
+  const data=await gmailApi("/api/email/inbox?maxResults=25&q=in:inbox");
+  for(const m of data.messages||[]){
+   const row=document.createElement("article"),title=document.createElement("strong"),meta=document.createElement("p"),snippet=document.createElement("p"),open=document.createElement("button");
+   title.textContent=m.subject;meta.textContent=(m.from||"Unknown sender")+" · "+(m.date||"");
+   snippet.textContent=m.snippet||"";open.textContent="Open conversation";open.onclick=()=>openThread(m.threadId);
+   row.append(title,meta,snippet,open);inboxNode.append(row);
+  }
+  inboxMessage((data.messages||[]).length+" inbox messages loaded. Messages are displayed as text; opening or reading does not send anything.");
+ }catch(e){inboxMessage(e.message)}
+}
+function addressFromHeader(value){
+ const angle=value.match(/<([^<>]+)>/);const candidate=angle?angle[1]:value;
+ const email=candidate.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+ return email?email[0]:"";
+}
+async function openThread(threadId){
+ threadNode.replaceChildren();inboxMessage("Loading conversation…");
+ try{
+  const data=await gmailApi("/api/email/thread/"+encodeURIComponent(threadId));
+  for(const m of data.messages||[]){
+   const article=document.createElement("article"),heading=document.createElement("h3"),meta=document.createElement("p"),body=document.createElement("pre");
+   heading.textContent=m.subject;meta.textContent="From: "+m.from+"\nTo: "+m.to+"\nDate: "+m.date;
+   body.textContent=m.body||"(No plain-text message body was available.)";
+   article.append(heading,meta,body);threadNode.append(article);
+  }
+  const latest=(data.messages||[]).at(-1);
+  if(latest){
+   const reply=document.createElement("button");reply.textContent="Draft a reply";
+   reply.onclick=()=>{
+    const form=document.getElementById("compose");
+    const recipient=addressFromHeader(latest.replyTo||latest.from);
+    if(!recipient){status("Could not identify a reply address. Enter the recipient manually.");form.elements.to.value="";}
+    else form.elements.to.value=recipient;
+    form.elements.subject.value=/^re:/i.test(latest.subject)?latest.subject:"Re: "+latest.subject;
+    form.elements.body.value="";
+    form.elements.threadId.value=data.threadId||threadId;
+    form.elements.inReplyTo.value=latest.messageId||"";
+    form.elements.references.value=[latest.references,latest.messageId].filter(Boolean).join(" ").trim();
+    delete form.dataset.id;delete form.dataset.revision;
+    form.scrollIntoView({behavior:"smooth"});
+    status("Reply prepared as a draft. Review it, save it, then approve and send separately.");
+   };
+   threadNode.append(reply);
+  }
+  inboxMessage("Conversation opened. No message was sent.");
+ }catch(e){inboxMessage(e.message)}
+}
+document.getElementById("refresh-inbox").onclick=loadInbox;
 async function reload(message="Drafts and delivery log loaded."){const data=await api();drafts=data.drafts;render();status(message)}
 function render(){
  draftNode.replaceChildren();
