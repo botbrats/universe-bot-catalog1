@@ -12,11 +12,11 @@ function render(){
  for(const d of drafts){
   const a=document.createElement("article"),title=document.createElement("h2"),to=document.createElement("p"),body=document.createElement("pre"),state=document.createElement("p");
   title.textContent=d.subject;to.textContent="To: "+(d.to||"Recipient not supplied");body.textContent=d.body;
-  if(d.status==="sent")state.textContent="Zoho accepted · Message ID "+d.messageId;
+  if(d.status==="sent")state.textContent=(d.provider==="gmail"?"Gmail accepted":"Zoho accepted")+" · Message ID "+d.messageId;
   else if(d.status==="draft"&&!d.to){state.textContent="Recipient needed before approval and sending.";state.className="needs"}
   else if(d.status==="draft")state.textContent="Saved draft — review before approving";
   else if(d.status==="approved")state.textContent="Approved — ready for your separate Send action";
-  else state.textContent=d.notice||"Submission in progress or interrupted. Check Zoho Sent before resending.";
+  else state.textContent=d.notice||"Submission in progress or interrupted. Check the connected mailbox Sent folder before resending.";
   a.append(title,to,body,state);
   if(d.status==="draft"||d.status==="approved"){
    const edit=document.createElement("button");
@@ -32,7 +32,7 @@ function render(){
       try{await api("/"+d.id+"/approve","POST",{revision:d.revision});await reload("Approved only. Review the message, then press Send when ready.");}
       catch(e){status(e.message);action.disabled=false}
      }else{
-      if(!window.confirm("Send this approved email now via consignmentstores@zohomail.com?\\n\\nTo: "+d.to+"\\nSubject: "+d.subject))return;
+      if(!window.confirm("Send this approved email now using your connected mailbox?\\n\\nTo: "+d.to+"\\nSubject: "+d.subject))return;
       action.disabled=true;
       try{await api("/"+d.id+"/send","POST",{revision:d.revision});await reload("Send request processed. Check provider status below.");}
       catch(e){status(e.message);action.disabled=false}
