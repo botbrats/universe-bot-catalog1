@@ -1,6 +1,8 @@
 import { emailRoute, cookie } from "./email.js";
 export { EmailQueue } from "./email.js";
 const ZOHO_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/zoho/callback";
+const GOOGLE_REDIRECT_URI = "https://universe-bot-catalog1.dceddocs.workers.dev/api/google/callback";
+const GOOGLE_ALLOWED_ADDRESS = "shopclubhostings@gmail.com";
 const CHAT_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
 
 async function generateChat(prompt, apiKey) {
@@ -45,6 +47,74 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/email/")) return emailRoute(request, env);
+
+    // Start Google OAuth for the approved Gmail sender. Gmail send access only;
+    // inbox-reading permissions will be added separately after sending is tested.
+    if (url.pathname === "/api/google/connect" && request.method === "GET") {
+      if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.OAUTH_TOKENS) {
+        return html("Google connection is not configured.", 503);
+      }
+      const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      auth.searchParams.set("client_id", env.GOOGLE_CLIENT_ID);
+      auth.searchParams.set("redirect_uri", GOOGLE_REDIRECT_URI);
+      auth.searchParams.set("response_type", "code");
+      auth.searchParams.set("scope", "openid email https://www.googleapis.com/auth/gmail.send");
+      auth.searchParams.set("access_type", "offline");
+      auth.searchParams.set("prompt", "consent");
+      auth.searchParams.set("include_granted_scopes", "true");
+      const state = crypto.randomUUID();
+      await env.OAUTH_TOKENS.put("google_oauth_state:" + state, "pending", { expirationTtl: 600 });
+      auth.searchParams.set("state", state);
+      return new Response(null, {status:302,headers:{Location:auth.toString(),
+        "Set-Cookie":"__Host-candy-google-oauth="+state+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600",
+        "Cache-Control":"no-store"}});
+    }
+
+    // Google OAuth callback: verify state, exchange code server-side, and enforce sender identity.
+    if (url.pathname === "/api/google/callback" && request.method === "GET") {
+      if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.OAUTH_TOKENS) {
+        return html("Google connection is not configured.", 503);
+      }
+      const error = url.searchParams.get("error");
+      if (error) return html("Google authorization was not completed: " + error, 400);
+      const code = url.searchParams.get("code");
+      if (!code) return html("Missing Google authorization code.", 400);
+      const state = url.searchParams.get("state");
+      if (!state || cookie(request, "__Host-candy-google-oauth") !== state ||
+          !/^[0-9a-f-]{36}$/.test(state) ||
+          await env.OAUTH_TOKENS.get("google_oauth_state:" + state) !== "pending") {
+        return html("Google connection expired. Start again.", 400);
+      }
+      await env.OAUTH_TOKENS.delete("google_oauth_state:" + state);
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:new URLSearchParams({code,client_id:env.GOOGLE_CLIENT_ID,
+          client_secret:env.GOOGLE_CLIENT_SECRET,redirect_uri:GOOGLE_REDIRECT_URI,
+          grant_type:"authorization_code"})
+      });
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok || !tokenData.access_token) {
+        return html("Google token exchange failed. Check the OAuth client and redirect URI; no credentials were displayed.", 502);
+      }
+      const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers:{Authorization:"Bearer "+tokenData.access_token}
+      });
+      const profile = await profileResponse.json();
+      if (!profileResponse.ok || profile.email?.toLowerCase() !== GOOGLE_ALLOWED_ADDRESS ||
+          profile.verified_email !== true) {
+        return html("The Google account must be the verified authorized sender " + GOOGLE_ALLOWED_ADDRESS + ". No connection was saved.", 403);
+      }
+      if (!tokenData.refresh_token) {
+        return html("Google did not return a refresh token. Revoke this app's access in Google Account permissions, then start the connection again.", 400);
+      }
+      await env.OAUTH_TOKENS.put("google_refresh_token", tokenData.refresh_token);
+      await env.OAUTH_TOKENS.put("google_sender", profile.email);
+      const session=crypto.randomUUID();
+      await env.OAUTH_TOKENS.put("candy_session:"+session,"gmail",{expirationTtl:86400});
+      return new Response(null,{status:302,headers:{Location:"/mail.html",
+        "Set-Cookie":"__Host-candy-session="+session+"; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400",
+        "Cache-Control":"no-store"}});
+    }
 
     // Do not expose account state or connected mailbox addresses on the public site.
     if (url.pathname === "/api/zoho/diagnostics" && request.method === "GET") {
