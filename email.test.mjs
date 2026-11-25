@@ -49,10 +49,13 @@ test("concurrent send clicks issue one provider submission",async()=>{
  globalThis.fetch=async url=>url.includes("oauth")?Response.json({access_token:"test"}):(submissions++,Response.json({status:{code:200},data:{messageId:"12345"}}));
  try{
  const {draft}=await (await queue.fetch(req("","POST",{to:"a@x.com",subject:"hi",body:"hello"}))).json();
+ assert.equal((await queue.fetch(req("/"+draft.id+"/approve","POST",{revision:1}))).status,200);
  const send=()=>queue.fetch(req("/"+draft.id+"/send","POST",{revision:1}));
  const results=await Promise.all([send(),send()]);
  assert.equal(submissions,1);
- for(const r of results)assert.equal((await r.json()).draft.status,"sent");
+ const payloads=await Promise.all(results.map(r=>r.json()));
+ assert.ok(payloads.some(x=>x.draft?.status==="sent"));
+ assert.ok(payloads.some(x=>x.error==="Only an approved draft can be sent." || x.error==="Approve this exact draft before sending."));
  }finally{globalThis.fetch=original}
 });
 test("timeout after submission is unknown and cannot resend",async()=>{
@@ -60,6 +63,7 @@ test("timeout after submission is unknown and cannot resend",async()=>{
  globalThis.fetch=async url=>{if(url.includes("oauth"))return Response.json({access_token:"test"});submissions++;throw new Error("timeout")};
  try{
  const {draft}=await (await queue.fetch(req("","POST",{to:"a@x.com",subject:"hi",body:"hello"}))).json();
+ assert.equal((await queue.fetch(req("/"+draft.id+"/approve","POST",{revision:1}))).status,200);
  const send=()=>queue.fetch(req("/"+draft.id+"/send","POST",{revision:1}));
  assert.equal((await (await send()).json()).draft.status,"unknown");
  await send();assert.equal(submissions,1);

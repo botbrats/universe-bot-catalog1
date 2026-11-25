@@ -1,26 +1,48 @@
-# Handy-Candy sending
+# Handy-Candy email portal
 
-Deploy the Worker with the existing Zoho secrets and OAUTH_TOKENS binding.
-The new EMAIL_QUEUE Durable Object and email-queue-v1 SQLite migration in
-wrangler.jsonc are required. Keep worker.js, email.js, mail.html and email-ui.js
-together. Deploy with the official Wrangler CLI using this configuration.
+The email portal supports the existing Zoho sender and the approved Gmail sender
+`shopclubhostings@gmail.com`. Gmail inbox access is read-only; replies are saved
+as drafts and sent only through the separate approval and Send actions.
 
-The existing OAuth CREATE permission is sufficient; no new mail scope is requested.
-Open /mail.html and use its Zoho sign-in link once after deployment. The
-callback verifies the allowed mailbox and creates a 24-hour HttpOnly Secure
-owner session. Public callers cannot use the email API.
+## Cloudflare configuration
 
-Load the private ten-inquiry JSON file through the file chooser. Saving imports
-the records into durable storage; loading does not send. Each saved message has a separate Approve action and Send action. Approval
-only records the owner decision; it does not contact Zoho. Editing an approved
-draft resets it to draft and requires approval again. No property inquiry data is bundled in public assets.
+Keep the existing production Worker, Durable Object binding `EMAIL_QUEUE`, and
+KV binding `OAUTH_TOKENS`. Configure the Google OAuth client ID and secret as
+Worker secrets named `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Do not put
+credentials in browser code, repository files, or chat messages.
 
-Send uses the saved draft revision, fixed verified sender, plain text, and one
-recipient. Submitted records cannot be edited or resent. An approved draft can be edited;
-editing clears its approval. A durable submission
-marker precedes the Zoho call. Timeout, malformed responses, and missing provider
-message IDs are marked unknown and require checking Zoho Sent. Provider acceptance
-is not delivery confirmation. Replies are not implemented in this feature.
+Google OAuth must use the Web application redirect URI:
+`https://universe-bot-catalog1.dceddocs.workers.dev/api/google/callback`.
+The OAuth consent screen is External / Testing and the verified owner account
+`shopclubhostings@gmail.com` must be a test user. The authorized domain is
+`dceddocs.workers.dev`.
 
-Validation: node email.test.mjs; node --check worker.js; node --check email-ui.js.
-Tests mock provider traffic and do not send real mail.
+The requested Google scopes are `openid`, `email`, `gmail.send`, and
+`gmail.readonly`. Adding read-only inbox access changes the consent grant.
+After the updated Worker is deployed, the owner must reconnect Gmail and approve
+the expanded scope. No Google Cloud billing activation is required merely to
+use the OAuth testing flow; do not enable billing or make a payment just for
+this integration without independently confirming a service requires it.
+
+## Owner workflow
+
+1. Open `/mail.html` and connect the authorized Gmail account or sign in to Zoho.
+2. For Gmail, choose Refresh Inbox and open a conversation. Message content is
+   rendered as text, not inserted as HTML.
+3. Choose Draft a reply. Confirm the recipient and wording, then Save draft.
+4. Review the saved draft and choose Approve. Approval does not send.
+5. Choose Send and confirm the exact recipient and subject. Sending is a
+   separate, explicit action.
+
+Imported inquiry batches contain at most 10 items and only create drafts. A
+recipient must be present and valid before approval. Editing an approved draft
+resets its approval. Submitted or uncertain sends cannot be blindly resent;
+check the provider Sent folder first. Provider acceptance is not delivery
+confirmation.
+
+## Validation
+
+Run `node --test email.test.mjs gmail.test.mjs` and the syntax checks in
+`.github/workflows/tests.yml`. Tests mock provider traffic; they do not send
+real email. Do not merge or deploy until CI passes and an owner-controlled
+end-to-end OAuth and test-message check has been completed.
